@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Vue 双向绑定（v-model）交互教程</title>
+<style>
+  :root{
+    --bg:#f5f7fa;
+    --card:#ffffff;
+    --line:#e5e7eb;
+    --text:#1f2328;
+    --muted:#6b7280;
+    --vue:#42b883;
+    --vue-dark:#35495e;
+    --code-bg:#0d1117;
+    --hl:#ffd580;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font-family:"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    line-height:1.7;
+  }
+  code,pre{font-family:"JetBrains Mono",Consolas,"Courier New",monospace;}
+
+  /* ---------- 页头 ---------- */
+  header{
+    background:linear-gradient(135deg,var(--vue-dark),var(--vue));
+    color:#fff;padding:38px 24px 30px;
+  }
+  header .wrap{max-width:1180px;margin:0 auto;}
+  header h1{margin:0;font-size:28px;letter-spacing:.5px;}
+  header p{margin:10px 0 0;opacity:.9;}
+  header .pill{
+    display:inline-block;margin-top:14px;padding:5px 14px;border-radius:999px;
+    background:rgba(255,255,255,.16);font-size:13px;
+  }
+
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px;}
+  main{padding:28px 0 60px;}
+
+  /* ---------- 卡片 ---------- */
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:14px;
+    margin-bottom:26px;overflow:hidden;box-shadow:0 6px 20px rgba(15,23,42,.05);
+  }
+  .card > h2{
+    margin:0;padding:16px 22px;font-size:18px;border-bottom:1px solid var(--line);
+    background:#fbfcfd;display:flex;align-items:center;gap:10px;
+  }
+  .num{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:26px;height:26px;border-radius:8px;background:var(--vue);color:#fff;
+    font-size:14px;flex:none;
+  }
+  .card > h2 small{font-weight:400;color:var(--muted);font-size:13px;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:0;}
+  .grid > div{padding:20px 22px;}
+  .grid > .left{border-right:1px dashed var(--line);}
+  @media (max-width:900px){
+    .grid{grid-template-columns:1fr;}
+    .grid > .left{border-right:none;border-bottom:1px dashed var(--line);}
+  }
+  .label{
+    font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);
+    margin-bottom:10px;font-weight:600;
+  }
+
+  /* ---------- 代码块 ---------- */
+  .code{
+    background:var(--code-bg);border-radius:10px;overflow:hidden;font-size:13px;
+  }
+  .code-bar{
+    display:flex;align-items:center;gap:6px;padding:8px 12px;background:#161b22;
+    color:#8b949e;font-size:12px;
+  }
+  .dot{width:10px;height:10px;border-radius:50%;}
+  .dot.r{background:#ff5f57}.dot.y{background:#febc2e}.dot.g{background:#28c840}
+  .code-bar .file{margin-left:6px;}
+  .code-bar button{
+    margin-left:auto;background:#21262d;color:#c9d1d9;border:1px solid #30363d;
+    border-radius:6px;padding:2px 10px;cursor:pointer;font-size:12px;
+  }
+  .code-bar button:hover{background:#30363d;}
+  .code pre{margin:0;padding:14px 16px;color:#c9d1d9;overflow:auto;line-height:1.65;}
+  .code pre .k{color:#ff7b72}.code pre .s{color:#a5d6ff}
+  .code pre .a{color:#ffa657}.code pre .c{color:#8b949e}
+
+  /* ---------- 表单控件 ---------- */
+  input[type=text],textarea,select{
+    width:100%;padding:8px 10px;border:1px solid #cfd6e0;border-radius:8px;
+    font-size:14px;outline:none;background:#fff;font-family:inherit;
+  }
+  input[type=text]:focus,textarea:focus,select:focus{
+    border-color:var(--vue);box-shadow:0 0 0 3px rgba(66,184,131,.18);
+  }
+  textarea{resize:vertical;min-height:64px;}
+  .row{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;margin:6px 0;}
+  .row label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;}
+  .hint{font-size:12.5px;color:var(--muted);margin:6px 0 0;}
+  select[multiple]{min-height:80px;}
+
+  /* ---------- 数据回显 ---------- */
+  .state{
+    margin-top:16px;background:#0d1117;color:#7ee787;border-radius:10px;
+    padding:12px 14px;font-size:13px;white-space:pre-wrap;word-break:break-all;
+  }
+  .state .key{color:#79c0ff}
+  .state .str{color:#a5d6ff}
+  .state .y{color:#ffd580}
+  .kv{margin-top:12px;font-size:13px;color:var(--muted);}
+  .kv b{color:var(--text);font-weight:600;}
+
+  /* ---------- 日志 ---------- */
+  .log{
+    height:150px;overflow:auto;background:#0d1117;border-radius:10px;padding:10px 12px;
+    font-size:12.5px;color:#adbac7;line-height:1.9;
+  }
+  .log div{border-bottom:1px dotted #22272e;padding:2px 0;}
+  .log .t{color:#6b7280;margin-right:8px;}
+  .log .g{color:#7ee787;}
+  .log .y{color:#ffd580;}
+
+  /* ---------- 组件预览 ---------- */
+  .comp-box{border:2px dashed #cfd6e0;border-radius:10px;padding:14px;background:#fafbfc;}
+  .comp-box > span{font-size:12px;color:var(--muted);display:block;margin-bottom:8px;}
+  .custom-input{
+    display:flex;align-items:center;gap:8px;border:1px solid var(--vue);
+    border-radius:8px;padding:6px 10px;background:#fff;
+  }
+  .custom-input input{border:none;outline:none;flex:1;font-size:14px;}
+  .custom-input .clear{
+    cursor:pointer;color:var(--muted);border:none;background:transparent;font-size:16px;line-height:1;
+  }
+  .tag{
+    display:inline-block;padding:2px 9px;margin:3px 4px 3px 0;border-radius:6px;
+    background:#e8f6f0;color:#1f7a55;font-size:12.5px;
+  }
+  footer{text-align:center;color:var(--muted);font-size:13px;padding:24px;}
+  blockquote{
+    margin:0;padding:10px 14px;border-left:4px solid var(--vue);background:#f3faf7;
+    color:#24584a;border-radius:0 8px 8px 0;font-size:14px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>Vue 双向绑定 · v-model 交互教程</h1>
+    <p>左边看代码，右边亲手操作 —— 数据变化和视图刷新实时对照</p>
+    <span class="pill">核心公式：数据变了 → 视图自动更新　·　用户改了 → 数据自动同步</span>
+  </div>
+</header>
+
+<main class="wrap" id="app">
+
+  <!-- ============ 1 ============ -->
+  <section class="card">
+    <h2><span class="num">1</span>本质：v-model 只是一个语法糖</h2>
+    <div class="grid">
+      <div class="left">
+        <div class="label">模板代码</div>
+        <code-block :code="code.sugar"></code-block>
+        <blockquote style="margin-top:14px">
+          <code class="k">v-model</code> 没有魔法，它等价于：<br />
+          ① 用 <code class="a">:value</code> 把数据绑到控件上 &nbsp;＋&nbsp; ② 用 <code class="a">@input</code> 把用户输入写回数据
+        </blockquote>
+      </div>
+      <div>
+        <div class="label">动手试试（两个框共用同一个数据）</div>
+        <div class="row"><input type="text" v-model="msg" placeholder="用 v-model 的写法" /></div>
+        <div class="row"><input type="text" :value="msg" @input="msg = $event.target.value" placeholder="手写 :value + @input" /></div>
+        <div class="hint">在任意一个框里打字 → 另一个框同步变化，说明两者完全等价。</div>
+        <div class="state">msg = <span class="str">"{{ msg }}"</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 2 ============ -->
+  <section class="card">
+    <h2><span class="num">2</span>不同表单控件的绑定规则 <small>值 / 布尔 / 数组</small></h2>
+    <div class="grid">
+      <div class="left">
+        <div class="label">模板代码</div>
+        <code-block :code="code.controls"></code-block>
+      </div>
+      <div>
+        <div class="label">动手试试</div>
+
+        <p class="kv"><b>① textarea —— 绑定到字符串</b></p>
+        <textarea v-model="form.intro" placeholder="多行文本"></textarea>
+
+        <p class="kv"><b>② 单个 checkbox —— 绑定到布尔值</b></p>
+        <div class="row">
+          <label><input type="checkbox" v-model="form.agreed" /> 我已阅读协议</label>
+          <span class="tag" v-if="form.agreed">已同意</span>
+        </div>
+
+        <p class="kv"><b>③ 多个 checkbox —— 绑定到数组（收集 value）</b></p>
+        <div class="row">
+          <label><input type="checkbox" value="Vue" v-model="form.stack" /> Vue</label>
+          <label><input type="checkbox" value="React" v-model="form.stack" /> React</label>
+          <label><input type="checkbox" value="Svelte" v-model="form.stack" /> Svelte</label>
+        </div>
+
+        <p class="kv"><b>④ radio —— 绑定到选中的那个 value</b></p>
+        <div class="row">
+          <label><input type="radio" value="前端" v-model="form.dir" /> 前端</label>
+          <label><input type="radio" value="后端" v-model="form.dir" /> 后端</label>
+          <label><input type="radio" value="全栈" v-model="form.dir" /> 全栈</label>
+        </div>
+
+        <p class="kv"><b>⑤ select 单选 / 多选</b></p>
+        <select v-model="form.city">
+          <option disabled value="">请选择城市</option>
+          <option v-for="c in cities" :key="c" :value="c">{{ c }}</option>
+        </select>
+        <p class="hint">多选按住 Ctrl / Cmd 点选</p>
+        <select multiple v-model="form.tags">
+          <option v-for="t in tagPool" :key="t" :value="t">{{ t }}</option>
+        </select>
+
+        <div class="state">{{ formJson }}</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 3 ============ -->
+  <section class="card">
+    <h2><span class="num">3</span>三个修饰符：lazy / number / trim</h2>
+    <div class="grid">
+      <div class="left">
+        <div class="label">模板代码</div>
+        <code-block :code="code.modifiers"></code-block>
+      </div>
+      <div>
+        <div class="label">动手试试</div>
+
+        <p class="kv"><b>① .lazy</b> —— 失焦后才同步（input 事件 → change 事件）</p>
+        <input type="text" v-model.lazy="m.lazy" placeholder="输入后点别处" />
+        <div class="state">m.lazy = <span class="str">"{{ m.lazy }}"</span></div>
+
+        <p class="kv"><b>② .number</b> —— 自动转成数字</p>
+        <input type="text" v-model.number="m.num" placeholder="输入 123 或 12.5" />
+        <div class="state">值 = {{ m.num }}　｜　typeof → <span class="y">{{ typeof m.num }}</span></div>
+
+        <p class="kv"><b>③ .trim</b> —— 自动去掉首尾空格</p>
+        <input type="text" v-model.trim="m.trim" placeholder="前后加几个空格试试" />
+        <div class="state">"{{ m.trim }}"　｜　长度 = {{ m.trim.length }}</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 4 ============ -->
+  <section class="card">
+    <h2><span class="num">4</span>组件上的双向绑定 <small>modelValue + update:modelValue</small></h2>
+    <div class="grid">
+      <div class="left">
+        <div class="label">子组件写法</div>
+        <code-block :code="code.childComp"></code-block>
+        <div class="label" style="margin-top:16px">父组件用法</div>
+        <code-block :code="code.parentUse"></code-block>
+        <blockquote style="margin-top:14px">
+          单向数据流铁律：子组件<b>不能</b>直接改 props，必须 <code class="a">emit('update:xxx')</code> 通知父组件改，
+          父组件改完数据，再顺着 prop 流回子组件 —— 一圈下来就是"双向"。
+        </blockquote>
+      </div>
+      <div>
+        <div class="label">动手试试</div>
+
+        <p class="kv"><b>① 单个 v-model（默认名 modelValue）</b></p>
+        <div class="comp-box">
+          <span>&lt;my-input v-model="keyword" /&gt;</span>
+          <my-input v-model="keyword" placeholder="带清除按钮的输入框组件" />
+        </div>
+
+        <p class="kv"><b>② 多个 v-model（带参数名）</b></p>
+        <div class="comp-box">
+          <span>&lt;size-setter v-model:w="w" v-model:h="h" /&gt;</span>
+          <size-setter v-model:w="box.w" v-model:h="box.h" />
+        </div>
+        <div :style="{width:box.w+'px',height:box.h+'px',background:'linear-gradient(135deg,#35495e,#42b883)',borderRadius:'8px',marginTop:'10px',transition:'all .2s'}"></div>
+
+        <div class="state">keyword = <span class="str">"{{ keyword }}"</span>
+box.w = {{ box.w }}　box.h = {{ box.h }}</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 5 ============ -->
+  <section class="card">
+    <h2><span class="num">5</span>computed / watch：跟着数据一起动</h2>
+    <div class="grid">
+      <div class="left">
+        <div class="label">代码</div>
+        <code-block :code="code.computedWatch"></code-block>
+      </div>
+      <div>
+        <div class="label">动手试试</div>
+        <div class="row">
+          <input type="text" v-model="first" placeholder="名" style="flex:1" />
+          <input type="text" v-model="last" placeholder="姓" style="flex:1" />
+        </div>
+        <div class="state">computed 结果 → <span class="str">{{ fullName }}</span>
+（依赖变了，computed 自动重算，且有缓存）</div>
+
+        <div class="label" style="margin-top:18px">watch 监听日志（追踪所有双向绑定的数据变化）</div>
+        <div class="log" ref="logBox">
+          <div v-if="!logs.length" style="color:#6b7280">等待你的操作…… 去上面任何一个输入框里改点东西</div>
+          <div v-for="l in logs" :key="l.id">
+            <span class="t">{{ l.time }}</span>
+            <span class="g">{{ l.field }}</span> 变为 <span class="y">{{ l.value }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 6 ============ -->
+  <section class="card">
+    <h2><span class="num">6</span>底层：为什么数据一变视图就更新？</h2>
+    <div class="grid">
+      <div class="left">
+        <div class="label">Vue 3 的响应式（Proxy 极简版）</div>
+        <code-block :code="code.proxy"></code-block>
+        <div class="hint">
+          想看完整手写实现（含 Vue 2 的 Object.defineProperty 版本 + 迷你模板编译器），
+          打开同目录下的 <code>principle.html</code>。
+        </div>
+      </div>
+      <div>
+        <div class="label">现场演示：改 Proxy 对象，回调自动执行</div>
+        <div class="row">
+          <input type="text" v-model="proxyDemo.name" placeholder="改这里会触发 effect" />
+        </div>
+        <div class="row">
+          <label>年龄 <input type="text" v-model.number="proxyDemo.age" style="width:90px" /></label>
+          <button @click="proxyDemo.count++" style="padding:6px 12px;border:1px solid #cfd6e0;border-radius:8px;background:#fff;cursor:pointer">count +1</button>
+        </div>
+        <div class="state">render 函数被调用次数：<span class="y">{{ renderCount }}</span>
+effect 自动重跑的输出 → <span class="str">{{ renderedText }}</span></div>
+        <div class="hint">
+          没有一行代码去手动刷新 DOM，只要 effect 里读过的数据被改了，effect 就重新执行 → 生成新内容。这就是双向绑定的"向上"那一半。
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>⚠️ 新手最常踩的 4 个坑</h2>
+    <div style="padding:6px 22px 22px">
+      <p class="kv"><b>1. 子组件里直接改 props：</b> 会报警告且不生效，必须 <code class="a">emit('update:modelValue', 新值)</code>。</p>
+      <p class="kv"><b>2. <code class="a">v-model</code> 绑的是 computed 但只给了 getter：</b> 赋值会失败，computed 必须写成带 set 的对象形式。</p>
+      <p class="kv"><b>3. select 第一项没写 <code class="a">value</code>：</b> iOS 下会出现选不中的问题，建议加 <code class="a">&lt;option disabled value=""&gt;</code>。</p>
+      <p class="kv"><b>4. checkbox 忘了写 <code class="a">value</code>：</b> 一组 checkbox 会全部变成 true / false，而不是进数组。</p>
+    </div>
+  </section>
+
+  <footer>用浏览器直接打开本文件即可 · 需要联网加载 Vue 3 CDN</footer>
+</main>
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<script>
+  // CDN 兜底：unpkg 挂了就换 jsdelivr
+  if (!window.Vue) {
+    document.write('<script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"><\/script>');
+  }
+</script>
+
+<script>
+const { createApp, reactive, ref, computed, watch, defineComponent } = Vue;
+
+/* ---------- 代码展示组件 ---------- */
+const CodeBlock = {
+  props: { code: String, lang: { type: String, default: 'vue' } },
+  setup(props) {
+    const copy = () => { navigator.clipboard && navigator.clipboard.writeText(props.code); };
+    return { copy };
+  },
+  template: `
+    <div class="code">
+      <div class="code-bar">
+        <i class="dot r"></i><i class="dot y"></i><i class="dot g"></i>
+        <span class="file">{{ lang }}</span>
+        <button @click="copy">复制</button>
+      </div>
+      <pre><code>{{ code }}</code></pre>
+    </div>`
+};
+
+/* ---------- 子组件：单个 v-model ---------- */
+const MyInput = defineComponent({
+  name: 'MyInput',
+  props: {
+    modelValue: String,
+    placeholder: String
+  },
+  emits: ['update:modelValue'],
+  template: `
+    <div class="custom-input">
+      <input
+        :value="modelValue"
+        :placeholder="placeholder"
+        @input="$emit('update:modelValue', $event.target.value)" />
+      <button class="clear" v-if="modelValue" @click="$emit('update:modelValue', '')">×</button>
+    </div>`
+});
+
+/* ---------- 子组件：多个 v-model ---------- */
+const SizeSetter = defineComponent({
+  name: 'SizeSetter',
+  props: { w: Number, h: Number },
+  emits: ['update:w', 'update:h'],
+  template: `
+    <div class="row">
+      <label>宽 <input type="range" min="60" max="320" :value="w"
+        @input="$emit('update:w', Number($event.target.value))" /> {{ w }}</label>
+      <label>高 <input type="range" min="20" max="160" :value="h"
+        @input="$emit('update:h', Number($event.target.value))" /> {{ h }}</label>
+    </div>`
+});
+
+/* ---------- 示例代码文本（作为纯文本展示，不参与渲染） ---------- */
+const code = {
+  sugar: [
+    '<!-- 简写 -->',
+    '<input v-model="msg">',
+    '',
+    '<!-- 完全等价的完整写法（这就是本质） -->',
+    '<input',
+    '  :value="msg"',
+    '  @input="msg = $event.target.value">',
+    '',
+    '<!-- 对照理解 -->',
+    '向下：msg  ->  :value  ->  输入框显示内容',
+    '向上：用户打字 -> @input -> msg 被重新赋值'
+  ].join('\n'),
+
+  controls: [
+    '<textarea v-model="form.intro"></textarea>',
+    '',
+    '<input type="checkbox" v-model="form.agreed">        <!-- 布尔 -->',
+    '',
+    '<input type="checkbox" value="Vue"    v-model="form.stack">  <!-- 数组 -->',
+    '<input type="checkbox" value="React"  v-model="form.stack">',
+    '<input type="checkbox" value="Svelte" v-model="form.stack">',
+    '',
+    '<input type="radio" value="前端" v-model="form.dir">   <!-- 选中的 value -->',
+    '<input type="radio" value="后端" v-model="form.dir">',
+    '',
+    '<select v-model="form.city">',
+    '  <option v-for="c in cities" :key="c" :value="c">{{ c }}</option>',
+    '</select>',
+    '',
+    '<select multiple v-model="form.tags"> ... </select>   <!-- 多选 -> 数组 -->'
+  ].join('\n'),
+
+  modifiers: [
+    '<input v-model.lazy="m.lazy">     <!-- 失焦时才同步 -->',
+    '<input v-model.number="m.num">    <!-- 自动 Number() -->',
+    '<input v-model.trim="m.trim">     <!-- 自动去掉首尾空格 -->',
+    '',
+    '/* 注意 .number 的规则：',
+    '   解析成功才算数字，"12abc" 还是原字符串，',
+    '   输入框本身就是 type="number" 时本来就是字符串，"123" -> 123 */'
+  ].join('\n'),
+
+  childComp: [
+    '/* MyInput.vue —— 子组件 */',
+    'props: { modelValue: String },',
+    'emits: [\'update:modelValue\'],',
+    '',
+    'template:',
+    '  <input',
+    '    :value="modelValue"                       // ① 接收父组件的值',
+    '    @input="$emit(\'update:modelValue\', $event.target.value)">  // ② 回传',
+    '',
+    '/* Vue 3.4+ 可以简写成一行 */',
+    'const model = defineModel()   // 直接用 model.value 读写'
+  ].join('\n'),
+
+  parentUse: [
+    '<!-- 默认名：modelValue -->',
+    '<my-input v-model="keyword" />',
+    '<!-- 等价写法，看得更清楚 -->',
+    '<my-input',
+    '  :model-value="keyword"',
+    '  @update:model-value="keyword = $event" />',
+    '',
+    '<!-- 具名：一次绑多个 -->',
+    '<size-setter v-model:w="box.w" v-model:h="box.h" />'
+  ].join('\n'),
+
+  computedWatch: [
+    'const first = ref(\'三\')',
+    'const last  = ref(\'张\')',
+    '',
+    '// 有缓存：依赖没变就不重算',
+    'const fullName = computed(() => last.value + first.value)',
+    '',
+    '// 监听：数据变了做副作用（请求接口、写日志、存本地）',
+    'watch(fullName, (nv, ov) => {',
+    '  console.log(ov, \'->\', nv)',
+    '})',
+    '',
+    'watch(form, (nv) => { /* 日志面板就是这样实现的 */ }, { deep: true })'
+  ].join('\n'),
+
+  proxy: [
+    'const bucket = new WeakMap()',
+    'let activeEffect = null',
+    '',
+    'function reactive(target) {           // 数据劫持',
+    '  return new Proxy(target, {',
+    '    get(t, k, r) {',
+    '      track(t, k)                     // 读的时候：收集依赖',
+    '      return Reflect.get(t, k, r)',
+    '    },',
+    '    set(t, k, v, r) {',
+    '      const ok = Reflect.set(t, k, v, r)',
+    '      trigger(t, k)                   // 写的时候：触发依赖',
+    '      return ok',
+    '    }',
+    '  })',
+    '}',
+    '',
+    'function effect(fn) {                 // 渲染函数就跑在 effect 里',
+    '  activeEffect = fn; fn(); activeEffect = null',
+    '}'
+  ].join('\n')
+};
+
+/* ---------- 主应用 ---------- */
+createApp({
+  components: { CodeBlock, MyInput, SizeSetter },
+  setup() {
+    const msg   = ref('你好，Vue');
+    const first = ref('三');
+    const last  = ref('张');
+
+    const form = reactive({
+      intro: '正在学习 v-model',
+      agreed: false,
+      stack: ['Vue'],
+      dir: '前端',
+      city: '杭州',
+      tags: ['v-model']
+    });
+
+    const m = reactive({ lazy: '', num: 0, trim: '' });
+
+    const keyword = ref('');
+    const box = reactive({ w: 200, h: 80 });
+
+    const cities  = ['杭州', '北京', '成都', '深圳'];
+    const tagPool = ['v-model', 'computed', 'watch', 'reactive', 'Pinia'];
+
+    /* computed：依赖变化自动重算 */
+    const fullName = computed(() => `${last.value}${first.value}`);
+
+    const formJson = computed(() => JSON.stringify(form, null, 2));
+
+    /* watch 日志面板 */
+    const logs = ref([]);
+    let prev = JSON.parse(JSON.stringify(form));
+    let seq = 0;
+    const push = (field, value) => {
+      const t = new Date();
+      const time = `${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}:${String(t.getSeconds()).padStart(2,'0')}`;
+      logs.value.unshift({ id: ++seq, time, field, value: JSON.stringify(value) });
+      if (logs.value.length > 40) logs.value.pop();
+    };
+
+    watch(form, () => {
+      for (const k in form) {
+        const a = JSON.stringify(prev[k]);
+        const b = JSON.stringify(form[k]);
+        if (a !== b) push('form.' + k, form[k]);
+      }
+      prev = JSON.parse(JSON.stringify(form));
+    }, { deep: true });
+
+    watch(msg,     v => push('msg', v));
+    watch(first,   v => push('first', v));
+    watch(last,    v => push('last', v));
+    watch(keyword, v => push('keyword', v));
+    watch(fullName,v => push('fullName(computed)', v));
+
+    /* 第 6 节：Proxy + effect 现场演示 */
+    const bucket = new WeakMap();
+    let activeEffect = null;
+    function track(target, key) {
+      if (!activeEffect) return;
+      let m = bucket.get(target);
+      if (!m) bucket.set(target, m = new Map());
+      let s = m.get(key);
+      if (!s) m.set(key, s = new Set());
+      s.add(activeEffect);
+    }
+    function trigger(target, key) {
+      const m = bucket.get(target);
+      if (!m) return;
+      (m.get(key) || []).forEach(fn => fn());
+    }
+    function reactiveLite(target) {
+      return new Proxy(target, {
+        get(t, k, r) { track(t, k); return Reflect.get(t, k, r); },
+        set(t, k, v, r) { const ok = Reflect.set(t, k, v, r); trigger(t, k); return ok; }
+      });
+    }
+    function effect(fn) { activeEffect = fn; fn(); activeEffect = null; }
+
+    const proxyDemo = reactiveLite({ name: '小明', age: 18, count: 0 });
+    const renderCount = ref(0);
+    const renderedText = ref('');
+    effect(() => {
+      renderCount.value++;
+      renderedText.value = `${proxyDemo.name} / ${proxyDemo.age}岁 / count=${proxyDemo.count}`;
+    });
+
+    return {
+      code, msg, form, formJson, m, cities, tagPool,
+      keyword, box, first, last, fullName,
+      logs, proxyDemo, renderCount, renderedText
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>

@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>手写 Vue 双向绑定原理</title>
+<style>
+  :root{
+    --bg:#f5f7fa;--card:#fff;--line:#e5e7eb;--text:#1f2328;--muted:#6b7280;
+    --vue:#42b883;--vue-dark:#35495e;--code-bg:#0d1117;--warn:#e0833a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);line-height:1.7;
+       font-family:"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif}
+  code,pre{font-family:"JetBrains Mono",Consolas,"Courier New",monospace}
+  header{background:linear-gradient(135deg,var(--vue-dark),var(--vue));color:#fff;padding:34px 24px 28px}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+  header h1{margin:0;font-size:26px}
+  header p{margin:8px 0 0;opacity:.9}
+  main{padding:26px 0 60px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:26px;
+        overflow:hidden;box-shadow:0 6px 20px rgba(15,23,42,.05)}
+  .card>h2{margin:0;padding:15px 22px;font-size:18px;border-bottom:1px solid var(--line);background:#fbfcfd;
+           display:flex;align-items:center;gap:10px}
+  .num{width:26px;height:26px;border-radius:8px;background:var(--vue);color:#fff;font-size:14px;
+       display:inline-flex;align-items:center;justify-content:center;flex:none}
+  .card>h2 small{font-weight:400;color:var(--muted);font-size:13px}
+  .grid{display:grid;grid-template-columns:1.05fr .95fr}
+  .grid>div{padding:20px 22px}
+  .grid>.left{border-right:1px dashed var(--line)}
+  @media(max-width:950px){.grid{grid-template-columns:1fr}.grid>.left{border-right:none;border-bottom:1px dashed var(--line)}}
+  .label{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;font-weight:600}
+  .code{background:var(--code-bg);border-radius:10px;overflow:hidden;font-size:12.5px}
+  .code-bar{display:flex;align-items:center;gap:6px;padding:8px 12px;background:#161b22;color:#8b949e;font-size:12px}
+  .dot{width:10px;height:10px;border-radius:50%}
+  .dot.r{background:#ff5f57}.dot.y{background:#febc2e}.dot.g{background:#28c840}
+  .code-bar .file{margin-left:6px}
+  .code pre{margin:0;padding:14px 16px;color:#c9d1d9;max-height:560px;overflow:auto;line-height:1.6}
+  input[type=text]{width:100%;padding:8px 10px;border:1px solid #cfd6e0;border-radius:8px;font-size:14px;
+                   outline:none;margin:4px 0 10px;font-family:inherit}
+  input[type=text]:focus{border-color:var(--vue);box-shadow:0 0 0 3px rgba(66,184,131,.18)}
+  button.btn{padding:6px 12px;border:1px solid #cfd6e0;border-radius:8px;background:#fff;cursor:pointer;
+             font-size:13px;margin:0 6px 6px 0}
+  button.btn:hover{border-color:var(--vue);color:var(--vue)}
+  .demo{border:2px dashed #cfd6e0;border-radius:10px;padding:14px;background:#fafbfc}
+  .demo>.ttl{font-size:12px;color:var(--muted);margin:0 0 8px}
+  .out{background:#0d1117;color:#7ee787;border-radius:10px;padding:12px 14px;font-size:13px;
+       white-space:pre-wrap;margin-top:12px;min-height:60px}
+  .log{height:170px;overflow:auto;background:#0d1117;border-radius:10px;padding:10px 12px;font-size:12.5px;
+       color:#adbac7;line-height:1.85;margin-top:12px}
+  .log div{border-bottom:1px dotted #22272e;padding:2px 0}
+  .log .t{color:#6b7280;margin-right:6px}
+  .log .g{color:#7ee787}.log .y{color:#ffd580}.log .r{color:#ff7b72}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{padding:9px 12px;border:1px solid var(--line);text-align:left;vertical-align:top}
+  th{background:#f8fafc;color:var(--muted);font-weight:600;font-size:12px;letter-spacing:.5px}
+  td code{background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:12.5px}
+  .hint{font-size:13px;color:var(--muted);margin:8px 0 0}
+  blockquote{margin:14px 0 0;padding:10px 14px;border-left:4px solid var(--vue);background:#f3faf7;
+             color:#24584a;font-size:14px;border-radius:0 8px 8px 0}
+  .warnbox{margin:12px;padding:10px 14px;border-left:4px solid var(--warn);background:#fff7ed;
+           color:#8a4b14;font-size:13.5px;border-radius:0 8px 8px 0}
+  footer{text-align:center;color:var(--muted);font-size:13px;padding:20px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>手写一套双向绑定 · 从 Vue 2 到 Vue 3</h1>
+    <p>不依赖任何框架：自己实现响应式系统 + 迷你模板编译器，看懂 v-model 背后的每一步</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="card">
+    <h2><span class="num">0</span>先记住这张图</h2>
+    <div style="padding:18px 22px">
+      <pre style="margin:0;background:#0d1117;color:#c9d1d9;padding:16px;border-radius:10px;font-size:13px;overflow:auto;line-height:1.6">
+   ┌─────────────────────────────────────────────────────┐
+   │                     View（DOM）                      │
+   │   &lt;input v-model="msg"&gt;          &lt;p&gt;{{ msg }}&lt;/p&gt;     │
+   └────────┬──────────────────────────────▲─────────────┘
+            │ ① 用户触发 input 事件          │ ③ 重新生成 HTML
+            │    把值写回 data               │    DOM 被更新
+            ▼                              │
+   ┌──────────────────────────────────────┴─────────────┐
+   │              Model（被劫持的 data）                  │
+   │   getter 收集依赖 ←→ setter 通知 Watcher/effect      │
+   └────────────────────────────────────────────────────┘
+                          ② 数据变化，通知订阅者
+      </pre>
+      <blockquote>一句话总结：<b>数据劫持</b>（我能感知到你改了数据）+ <b>发布订阅</b>（谁用了这个数据就通知谁）+ <b>模板编译</b>（把指令翻译成 DOM 操作）。</blockquote>
+    </div>
+  </section>
+
+  <!-- ==================== Vue 2 ==================== -->
+  <section class="card">
+    <h2><span class="num">1</span>Vue 2 方案：Object.defineProperty + 发布订阅 <small>含迷你模板编译器</small></h2>
+    <div class="grid">
+      <div class="left">
+        <div class="label">完整源码（本页真实运行的就是它）</div>
+        <div class="code">
+          <div class="code-bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="file">mvvm-vue2.js</span></div>
+          <pre><code id="show-a"></code></pre>
+        </div>
+      </div>
+      <div>
+        <div class="label">运行结果（已支持 {{ }} / v-model / v-on:click）</div>
+
+        <div class="demo" id="demo-a">
+          <p class="ttl">下面是原生 HTML，指令由我们自己写的编译器处理</p>
+
+          <p>文本框：</p>
+          <input type="text" v-model="message" placeholder="输入试试">
+
+          <p>插值渲染：<b>{{ message }}</b></p>
+
+          <p>深层属性 user.name：</p>
+          <input type="text" v-model="user.name">
+
+          <p>插值渲染：<b>{{ user.name }}</b> —— 计数：<b>{{ count }}</b></p>
+
+          <button class="btn" v-on:click="addCount">count + 1</button>
+          <button class="btn" v-on:click="reset">重置</button>
+          <p class="hint">下面两个按钮是 Vue 2 时代的经典坑：</p>
+          <button class="btn" v-on:click="addProp">给 data 新增属性</button>
+          <button class="btn" v-on:click="setIndex">数组下标赋值 list[0]</button>
+
+          <div class="out" id="out-a"></div>
+        </div>
+
+        <div class="warnbox">
+          点一下「给 data 新增属性」：<b>回显面板毫无反应</b>，因为新增的属性从没走过 defineProperty，
+          Vue 2 才需要提供 <code>Vue.set / $set</code>。数组下标同理。
+        </div>
+
+        <div class="label" style="margin-top:16px">Watcher 触发日志</div>
+        <div class="log" id="log-a"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== Vue 3 ==================== -->
+  <section class="card">
+    <h2><span class="num">2</span>Vue 3 方案：Proxy + effect</h2>
+    <div class="grid">
+      <div class="left">
+        <div class="label">完整源码</div>
+        <div class="code">
+          <div class="code-bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="file">reactive-vue3.js</span></div>
+          <pre><code id="show-b"></code></pre>
+        </div>
+      </div>
+      <div>
+        <div class="label">运行结果</div>
+        <div class="demo">
+          <p>message：</p><input type="text" id="b-msg">
+          <p>user.name：</p><input type="text" id="b-name">
+          <p>插值渲染：<b id="b-text"></b> —— 计数：<b id="b-count"></b></p>
+          <button class="btn" id="b-add">count + 1</button>
+          <button class="btn" id="b-addprop">新增属性</button>
+          <button class="btn" id="b-delprop">删除属性</button>
+          <button class="btn" id="b-index">数组下标赋值</button>
+          <div class="out" id="out-b"></div>
+        </div>
+        <blockquote style="margin-top:12px">
+          同样是「新增属性」，这次面板<b>立刻更新</b> —— Proxy 代理的是整个对象，不管属性是旧的、新的、被删除的，
+          都能感知到。这就是 Vue 3 换用 Proxy 的根本原因。
+        </blockquote>
+        <div class="label" style="margin-top:16px">effect 触发日志</div>
+        <div class="log" id="log-b"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 对比 ==================== -->
+  <section class="card">
+    <h2><span class="num">3</span>两者对比与选型</h2>
+    <div style="padding:18px 22px">
+      <table>
+        <tr><th style="width:22%">维度</th><th style="width:39%">Object.defineProperty（Vue 2）</th><th style="width:39%">Proxy（Vue 3）</th></tr>
+        <tr><td>劫持粒度</td><td>逐个 <code>key</code> 遍历 + 递归，初始化就要走完所有属性，深层对象成本高</td><td>代理整个对象，<b>懒代理</b>：用到嵌套对象时才创建子代理</td></tr>
+        <tr><td>新增属性</td><td>❌ 感知不到，需要 <code>Vue.set</code></td><td>✅ 天然支持</td></tr>
+        <tr><td>删除属性</td><td>❌ 需要 <code>Vue.delete</code></td><td>✅ <code>deleteProperty</code> 拦截</td></tr>
+        <tr><td>数组</td><td>❌ 下标赋值 / <code>length</code> 无效，需重写 7 个变更方法</td><td>✅ 全都能拦截</td></tr>
+        <tr><td>兼容性</td><td>✅ 支持到 IE8+</td><td>❌ 无法 polyfill，放弃 IE</td></tr>
+      </table>
+      <blockquote style="margin-top:16px">
+        再看一次 <code>v-model</code>：它其实只是响应式系统的一个"消费者" ——
+        <code>:value</code> 读数据（触发 <b>getter → 收集依赖</b>），
+        <code>@input</code> 写数据（触发 <b>setter → 派发更新</b>）。
+        理解了上面两套机制，所有 Vue 的"自动更新"都不再神秘。
+      </blockquote>
+    </div>
+  </section>
+
+  <footer>纯原生 JS，无需联网，双击即可打开</footer>
+</main>
+
+
+<!-- ============================================================
+     Demo A 源码：Vue 2 风格的 MVVM
+     ============================================================ -->
+<script id="src-a">
+/* ---------- 1. 发布订阅：Dep 与 Watcher ---------- */
+class Dep {
+  constructor() { this.subs = new Set(); }
+  depend() { if (Dep.target) this.subs.add(Dep.target); }   // 把当前 Watcher 存进来
+  notify() { this.subs.forEach(w => w.update()); }          // 挨个通知
+}
+Dep.target = null;   // 全局唯一，标记"当前正在求值的那个 Watcher"
+
+class Watcher {
+  constructor(getter, cb, desc) {
+    this.getter = getter; this.cb = cb; this.desc = desc;
+    this.get();
+  }
+  get() {
+    Dep.target = this;              // 把自己挂上去
+    this.value = this.getter();     // 求值过程会读到数据 -> 触发 getter -> dep.depend()
+    Dep.target = null;              // 用完摘掉
+    this.cb(this.value);            // 首次渲染
+  }
+  update() {
+    const nv = this.get();          // 重新求值（此时又会收集依赖）
+    logA('watcher 重新执行 → ' + this.desc, 'g');
+  }
+}
+
+/* ---------- 2. 数据劫持 ---------- */
+function observe(obj) {
+  if (!obj || typeof obj !== 'object') return;
+  Object.keys(obj).forEach(key => defineReactive(obj, key, obj[key]));
+}
+
+function defineReactive(obj, key, val) {
+  observe(val);                     // 递归处理子对象
+  const dep = new Dep();            // 每个 key 一个依赖筐
+
+  Object.defineProperty(obj, key, {
+    enumerable: true,
+    configurable: true,
+    get() {
+      dep.depend();                 // 【读】有人用了我 -> 记下来
+      return val;
+    },
+    set(newVal) {
+      if (newVal === val) return;
+      logA('setter 触发 → ' + key + ': ' + JSON.stringify(val) + ' → ' + JSON.stringify(newVal), 'y');
+      val = newVal;
+      observe(newVal);
+      dep.notify();                 // 【写】通知所有用到我的地方更新
+    }
+  });
+}
+
+/* ---------- 3. 迷你模板编译器 ---------- */
+function getValue(data, exp) {
+  return exp.split('.').reduce((o, k) => o[k], data);
+}
+function setValue(data, exp, value) {
+  const keys = exp.split('.');
+  const last = keys.pop();
+  const obj = keys.reduce((o, k) => o[k], data);
+  obj[last] = value;                // 这一句会命中 setter
+}
+
+function compile(root, data, methods) {
+  Array.from(root.childNodes).forEach(node => {
+    if (node.nodeType === 1) {                                  // 元素节点
+      if (node.hasAttribute('v-model')) {
+        const exp = node.getAttribute('v-model').trim();
+        node.addEventListener('input', e => setValue(data, exp, e.target.value));
+        new Watcher(() => getValue(data, exp), v => { node.value = v; }, 'v-model="' + exp + '"');
+      }
+      if (node.hasAttribute('v-on:click')) {
+        const name = node.getAttribute('v-on:click').trim();
+        node.addEventListener('click', () => methods[name] && methods[name]());
+      }
+      if (node.childNodes.length) compile(node, data, methods);   // 递归子节点（含文本子节点）
+
+    } else if (node.nodeType === 3) {                           // 文本节点 {{ }}
+      const raw = node.nodeValue;
+      if (/\{\{(.+?)\}\}/.test(raw)) {
+        new Watcher(
+          () => raw.replace(/\{\{(.+?)\}\}/g, (_, e) => getValue(data, e.trim())),
+          v => { node.nodeValue = v; },
+          '插值 "' + raw.trim() + '"'
+        );
+      }
+    }
+  });
+}
+
+/* ---------- 4. 跑起来 ---------- */
+const dataA = { message: '你好 Vue', user: { name: '小明' }, count: 0, list: ['Vue', 'React'] };
+observe(dataA);
+
+compile(document.getElementById('demo-a'), dataA, {
+  addCount() { dataA.count++; },
+  reset() { dataA.message = '你好 Vue'; dataA.user.name = '小明'; dataA.count = 0; },
+  addProp() { dataA.extra = '后来加的属性'; },   // Vue 2 中：无响应式
+  setIndex() { dataA.list[0] = 'Angular'; }     // Vue 2 中：无响应式
+});
+
+// 回显面板：读取全部属性 -> 依赖全部属性 -> 任何属性变化都会刷新
+new Watcher(
+  () => JSON.stringify(dataA, null, 2),
+  v => { document.getElementById('out-a').textContent = v; },
+  '回显面板'
+);
+
+function logA(text, cls) {
+  const box = document.getElementById('log-a');
+  if (!box) return;
+  const t = new Date();
+  const time = [t.getHours(), t.getMinutes(), t.getSeconds()].map(n => String(n).padStart(2, '0')).join(':');
+  const row = document.createElement('div');
+  row.innerHTML = '<span class="t">' + time + '</span><span class="' + (cls || '') + '">' + text + '</span>';
+  box.insertBefore(row, box.firstChild);
+  while (box.children.length > 60) box.removeChild(box.lastChild);
+}
+</script>
+
+
+<!-- ============================================================
+     Demo B 源码：Vue 3 风格的响应式
+     ============================================================ -->
+<script id="src-b">
+let activeEffect = null;                 // 当前正在执行的副作用函数
+const targetMap = new WeakMap();         // target -> key -> Set<effect>
+const proxyCache = new WeakMap();        // 同一个对象只代理一次
+
+/* 读：把当前 effect 存进这个属性的依赖集合 */
+function track(target, key) {
+  if (!activeEffect) return;
+  let depsMap = targetMap.get(target);
+  if (!depsMap) targetMap.set(target, depsMap = new Map());
+  let deps = depsMap.get(key);
+  if (!deps) depsMap.set(key, deps = new Set());
+  deps.add(activeEffect);
+}
+
+/* 写：把这个属性的依赖集合全部重新执行 */
+function trigger(target, key) {
+  const depsMap = targetMap.get(target);
+  if (!depsMap) return;
+  const effects = depsMap.get(key);
+  if (effects) {
+    logB('trigger 派发更新 → ' + String(key));
+    effects.forEach(fn => fn());
+  }
+}
+
+/* 数据代理：拦截 get / set / deleteProperty */
+function reactive(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  if (proxyCache.has(obj)) return proxyCache.get(obj);
+
+  const proxy = new Proxy(obj, {
+    get(target, key, receiver) {
+      track(target, key);
+      const result = Reflect.get(target, key, receiver);
+      // 懒代理：只有真正用到嵌套对象时，才递归创建代理
+      return typeof result === 'object' && result !== null ? reactive(result) : result;
+    },
+    set(target, key, value, receiver) {
+      logB('set 拦截 → ' + String(key) + ' = ' + JSON.stringify(value), 'y');
+      const ok = Reflect.set(target, key, value, receiver);
+      trigger(target, key);
+      return ok;
+    },
+    deleteProperty(target, key) {
+      logB('delete 拦截 → ' + String(key), 'r');
+      const ok = Reflect.deleteProperty(target, key);
+      trigger(target, key);
+      return ok;
+    }
+  });
+
+  proxyCache.set(obj, proxy);
+  return proxy;
+}
+
+/* 副作用函数：fn 内部的响应式数据变化时，fn 自动重跑 */
+function effect(fn) {
+  const runner = () => { activeEffect = runner; try { fn(); } finally { activeEffect = null; } };
+  runner();
+  return runner;
+}
+
+/* ---------- 跑起来 ---------- */
+const state = reactive({ message: '你好 Proxy', user: { name: '小红' }, count: 0, list: ['Vue', 'React'] });
+
+// 一个 effect 把整个回显面板渲染出来：读过上面所有属性 → 全都成了依赖
+effect(() => {
+  document.getElementById('out-b').textContent = JSON.stringify(state, null, 2);
+  logB('effect 重新执行（DOM 已更新）', 'g');
+});
+effect(() => { document.getElementById('b-text').textContent = state.message + ' / ' + state.user.name; });
+effect(() => { document.getElementById('b-count').textContent = state.count; });
+
+// 手动补上的"向上"那一半：输入 -> 写数据
+document.getElementById('b-msg').addEventListener('input', e => { state.message = e.target.value; });
+document.getElementById('b-name').addEventListener('input', e => { state.user.name = e.target.value; });
+document.getElementById('b-add').addEventListener('click', () => { state.count++; });
+document.getElementById('b-addprop').addEventListener('click', () => { state.extra = '后来加的属性'; });
+document.getElementById('b-delprop').addEventListener('click', () => { delete state.extra; });
+document.getElementById('b-index').addEventListener('click', () => { state.list[0] = 'Angular'; });
+
+function logB(text, cls) {
+  const box = document.getElementById('log-b');
+  if (!box) return;
+  const t = new Date();
+  const time = [t.getHours(), t.getMinutes(), t.getSeconds()].map(n => String(n).padStart(2, '0')).join(':');
+  const row = document.createElement('div');
+  row.innerHTML = '<span class="t">' + time + '</span><span class="' + (cls || '') + '">' + text + '</span>';
+  box.insertBefore(row, box.firstChild);
+  while (box.children.length > 60) box.removeChild(box.lastChild);
+}
+</script>
+
+
+<!-- 把上面两段真实源码展示到左侧代码块 -->
+<script>
+  document.getElementById('show-a').textContent = document.getElementById('src-a').textContent.trim();
+  document.getElementById('show-b').textContent = document.getElementById('src-b').textContent.trim();
+
+  // Demo B 输入框初值
+  document.getElementById('b-msg').value  = '你好 Proxy';
+  document.getElementById('b-name').value = '小红';
+</script>
+
+</body>
+</html>
